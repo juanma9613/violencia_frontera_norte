@@ -12,8 +12,19 @@ import csv
 
 def get_tweets_mentions(user,
                         api,
-                        petitions=4,
+                        number_of_api_calls=4,
                         newest_id_possible_path='newest_id_mentions.json'):
+    """get all mentions of a user, the query performed is the following to:<user> OR  @<user>
+
+    Args:
+        user ([type]): [description]
+        api ([type]): [description]
+        number_of_api_calls (int, optional): [description]. Defaults to 4.
+        newest_id_possible_path (str, optional): [description]. Defaults to 'newest_id_mentions.json'.
+
+    Returns:
+        [type]: [description]
+    """
 
     if os.path.exists(newest_id_possible_path):
         with open(newest_id_possible_path) as json_file:
@@ -27,7 +38,7 @@ def get_tweets_mentions(user,
 
     _max_id = None
     n_queries = 0
-    max_queries = petitions
+    max_queries = number_of_api_calls
 
     tweets = tweet_batch = api.search(q=f'to:{user} OR @{user}',
                                       tweet_mode="extended",
@@ -117,14 +128,14 @@ def get_tweets_mentions(user,
 
 def get_tweets_timeline(user,
                         api,
-                        petitions=10,
+                        number_of_api_calls=10,
                         newest_id_possible_path='newest_id_tweets.json'):
     """Function to get tweets and retweets from an user timeline
 
     Args:
         user (str): screen name of an user
         api ([type]): [description]
-        petitions (int, optional): [description]. Defaults to 10.
+        number_of_api_calls (int, optional): [description]. Defaults to 10.
         newest_id_possible_path (str, optional): [description]. Defaults to 'newest_id_tweets.json'.
 
     Returns:
@@ -144,7 +155,7 @@ def get_tweets_timeline(user,
     _max_id = None
     n_queries = 0
     n_queries_user = 0
-    max_queries = petitions
+    max_queries = number_of_api_calls
 
     tweets = tweet_batch = api.user_timeline(screen_name=user,
                                              tweet_mode="extended",
