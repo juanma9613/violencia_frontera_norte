@@ -252,7 +252,7 @@ def get_tweets_timeline(user,
             temp = [
                 tweet._json["id"], access_time, date_format,
                 tweet._json["user"]["screen_name"], None, True,
-                tweet._json["retweeted_status"]["user"]["screen_name"], "Tweet",
+                tweet._json["retweeted_status"]["user"]["screen_name"], "Retweet",
                 tweet._json["retweeted_status"]["full_text"]
             ]
             retweets_lst.append(temp)
