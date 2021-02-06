@@ -108,7 +108,7 @@ def get_tweets_mentions(user,
             if ('RT @' not in tweet._json["full_text"]):
                 temp = [
                     tweet._json["id"], access_time, date_format,
-                    tweet._json["user"]["screen_name"], None, False, None,
+                    tweet._json["user"]["screen_name"], None, False, None, "Mention",
                     tweet._json["full_text"]
                 ]
                 tweets_mentions.append(temp)
@@ -118,7 +118,7 @@ def get_tweets_mentions(user,
                 temp = [
                     tweet._json["id"], access_time, date_format,
                     tweet._json["user"]["screen_name"], None, True,
-                    tweet._json["retweeted_status"]["user"]["screen_name"],
+                    tweet._json["retweeted_status"]["user"]["screen_name"], "Mention",
                     tweet._json["retweeted_status"]["full_text"]
                 ]
                 retweets_mentions.append(temp)
@@ -130,7 +130,21 @@ def get_tweets_mentions(user,
         with open(newest_id_possible_path, 'w') as outfile:
             json.dump(newest_tweet_id_mentions, outfile)
 
-    return tweets_mentions, retweets_mentions
+    df_tw_m = pd.DataFrame(tweets_mentions,
+                           columns=[
+                               'id', 'fecha_consulta', 'fecha_escritura',
+                               'cuenta_origen', 'query_busqueda', 'retweet',
+                               'retweeted_from', 'type', 'texto'
+                           ])
+
+    df_rtw_m = pd.DataFrame(retweets_mentions,
+                            columns=[
+                                'id', 'fecha_consulta', 'fecha_escritura',
+                                'cuenta_origen', 'query_busqueda', 'retweet',
+                                'retweeted_from', 'type', 'texto'
+                            ])
+
+    return df_tw_m, df_rtw_m
 
 
 def get_tweets_timeline(user,
@@ -228,7 +242,7 @@ def get_tweets_timeline(user,
         if ('RT @' not in tweet._json["full_text"]):
             temp = [
                 tweet._json["id"], access_time, date_format,
-                tweet._json["user"]["screen_name"], None, False, None,
+                tweet._json["user"]["screen_name"], None, False, None, "Tweet",
                 tweet._json["full_text"]
             ]
             tweets_lst.append(temp)
@@ -238,7 +252,7 @@ def get_tweets_timeline(user,
             temp = [
                 tweet._json["id"], access_time, date_format,
                 tweet._json["user"]["screen_name"], None, True,
-                tweet._json["retweeted_status"]["user"]["screen_name"],
+                tweet._json["retweeted_status"]["user"]["screen_name"], "Tweet",
                 tweet._json["retweeted_status"]["full_text"]
             ]
             retweets_lst.append(temp)
@@ -250,7 +264,21 @@ def get_tweets_timeline(user,
         with open(newest_id_possible_path, 'w') as outfile:
             json.dump(newest_tweet_id, outfile)
 
-    return tweets_lst, retweets_lst
+    df_tw = pd.DataFrame(tweets_lst,
+                         columns=[
+                             'id', 'fecha_consulta', 'fecha_escritura',
+                             'cuenta_origen', 'query_busqueda', 'retweet',
+                             'retweeted_from', 'type', 'texto'
+                         ])
+
+    df_rtw = pd.DataFrame(retweets_lst,
+                          columns=[
+                              'id', 'fecha_consulta', 'fecha_escritura',
+                              'cuenta_origen', 'query_busqueda', 'retweet',
+                              'retweeted_from', 'type', 'texto'
+                          ])
+
+    return df_tw, df_rtw
 
 
 if __name__ == "__main__":
@@ -271,39 +299,12 @@ if __name__ == "__main__":
     tw_m, rtw_m = get_tweets_mentions(user, api=api)
     print((len(tw_m) + len(rtw_m)), "mentions collected")
 
-    df_tw_m = pd.DataFrame(tw_m,
-                           columns=[
-                               'id', 'fecha_consulta', 'fecha_escritura',
-                               'cuenta_origen', 'query_busqueda', 'retweet',
-                               'retweeted_from', 'texto'
-                           ])
-
-    df_rtw_m = pd.DataFrame(rtw_m,
-                            columns=[
-                                'id', 'fecha_consulta', 'fecha_escritura',
-                                'cuenta_origen', 'query_busqueda', 'retweet',
-                                'retweeted_from', 'texto'
-                            ])
     # Getting tweets and retweets from user timeline
     # ----------------------------------------------
     tw, rtw = get_tweets_timeline(user, api=api)
-
     print(len(tw), "tweets", "and", len(rtw), "retweets collected")
-    df_tw = pd.DataFrame(tw,
-                         columns=[
-                             'id', 'fecha_consulta', 'fecha_escritura',
-                             'cuenta_origen', 'query_busqueda', 'retweet',
-                             'retweeted_from', 'texto'
-                         ])
 
-    df_rtw = pd.DataFrame(rtw,
-                          columns=[
-                              'id', 'fecha_consulta', 'fecha_escritura',
-                              'cuenta_origen', 'query_busqueda', 'retweet',
-                              'retweeted_from', 'texto'
-                          ])
-
-    dfs = [df_tw, df_rtw, df_tw_m, df_rtw_m]
+    dfs = [tw_m, rtw_m, tw, rtw]
     all_dfs = pd.concat(dfs, ignore_index=True)
 
     access_time = datetime.now().strftime("%Y_%b_%d_%H:%M:%S")
