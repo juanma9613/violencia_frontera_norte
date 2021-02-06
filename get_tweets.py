@@ -12,10 +12,17 @@ import csv
 
 def get_tweets_mentions(user,
                         api,
-                        number_of_api_calls=4,
-                        newest_id_possible_path='newest_id_mentions.json'):
+                        number_of_api_calls=10,
+                        newest_id_possible_path='newest_id_mentions.json',
+                        items_per_call=100):
     """get all mentions of a user, the query performed is the following to:<user> OR  @<user>
 
+    Link
+    - https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/api-reference/get-search-tweets
+    - https://docs.tweepy.org/en/latest/api.html?highlight=search#API.search
+    NOTE:
+    Requests / 15-min window (user auth) : 180
+    Requests / 15-min window (app auth)	: 450
     Args:
         user ([type]): [description]
         api ([type]): [description]
@@ -42,7 +49,7 @@ def get_tweets_mentions(user,
 
     tweets = tweet_batch = api.search(q=f'to:{user} OR @{user}',
                                       tweet_mode="extended",
-                                      count=100,
+                                      count=items_per_call,
                                       result_type='recent',
                                       since_id=_since_id,
                                       max_id=_max_id)
@@ -58,7 +65,7 @@ def get_tweets_mentions(user,
 
         tweet_batch = api.search(q=f'to:{user} OR @{user}',
                                  result_type='recent',
-                                 count=100,
+                                 count=items_per_call,
                                  max_id=tweet_max_id,
                                  tweet_mode='extended',
                                  since_id=_since_id)
@@ -77,7 +84,7 @@ def get_tweets_mentions(user,
                 print('exited because tweet_max_id < since_id')
                 break
 
-        if num_none_rows > 6:  #if 6 searches in a row are none then stop searching for that user
+        if num_none_rows > 5:  #if 5 searches in a row are none then stop searching for that user
             print('exited because there were 6 consecutive calls giving none')
             break
 
@@ -129,9 +136,16 @@ def get_tweets_mentions(user,
 def get_tweets_timeline(user,
                         api,
                         number_of_api_calls=10,
-                        newest_id_possible_path='newest_id_tweets.json'):
+                        newest_id_possible_path='newest_id_tweets.json',
+                        items_per_call=200):
     """Function to get tweets and retweets from an user timeline
 
+    links:
+    - https://developer.twitter.com/en/docs/twitter-api/v1/tweets/timelines/api-reference/get-statuses-user_timeline
+    - https://docs.tweepy.org/en/latest/api.html?highlight=search#API.user_timeline
+
+    NOTE: 
+    the maximum number of calls in a 15-min window is 900
     Args:
         user (str): screen name of an user
         api ([type]): [description]
@@ -154,13 +168,12 @@ def get_tweets_timeline(user,
 
     _max_id = None
     n_queries = 0
-    n_queries_user = 0
     max_queries = number_of_api_calls
 
     tweets = tweet_batch = api.user_timeline(screen_name=user,
                                              tweet_mode="extended",
-                                             count=100,
                                              result_type='recent',
+                                             count=items_per_call,
                                              since_id=_since_id,
                                              max_id=_max_id)
 
@@ -175,10 +188,10 @@ def get_tweets_timeline(user,
             tweet_max_id = tweet_batch.max_id
 
         tweet_batch = api.user_timeline(screen_name=user,
-                                        result_type='recent',
-                                        count=100,
-                                        max_id=tweet_max_id,
                                         tweet_mode='extended',
+                                        result_type='recent',
+                                        count=items_per_call,
+                                        max_id=tweet_max_id,
                                         since_id=_since_id)
 
         n_queries += 1
@@ -289,3 +302,15 @@ if __name__ == "__main__":
                               'cuenta_origen', 'query_busqueda', 'retweet',
                               'retweeted_from', 'texto'
                           ])
+
+    dfs = [df_tw, df_rtw, df_tw_m, df_rtw_m]
+    all_dfs = pd.concat(dfs, ignore_index=True)
+
+    access_time = datetime.now().strftime("%Y_%b_%d_%H:%M:%S")
+    out = access_time + "_cuentas.csv"
+
+    all_dfs.to_csv(out,
+                   sep='\t',
+                   index=False,
+                   header=True,
+                   quoting=csv.QUOTE_ALL)
