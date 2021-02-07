@@ -403,9 +403,6 @@ if __name__ == "__main__":
     with open('creds.json') as json_file:
         creds = json.load(json_file)
 
-    user = "@DEFENSORIAEC"
-    user = user.replace("@", "")
-
     auth = tweepy.AppAuthHandler(creds["client_key"], creds["client_secret"])
     api = tweepy.API(auth,
                      wait_on_rate_limit=True,
