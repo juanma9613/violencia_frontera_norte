@@ -10,6 +10,16 @@ import re
 import csv
 
 def format_tweets(tweets, user, _type):
+    """Function that processes tweets to obtain specific information
+
+    Args:
+        tweets (object): api.search or api.user_timeline result
+        user (str): screen name of an user
+        _type (str): mentions or timeline 
+
+    Returns:
+        df_tw, df_rtw (dataframes): dataframes of tweets and retweets
+    """
 
     tweets_lst = []
     retweets_lst = []  
@@ -67,7 +77,7 @@ def format_tweets(tweets, user, _type):
 def get_tweets_mentions(user,
                         api,
                         number_of_api_calls=10,
-                        newest_id_possible_path='/home/noone/Desktop/vfn/violencia_frontera_norte/newest_id_mentions.json',
+                        newest_id_possible_path='newest_id_mentions.json',
                         items_per_call=100):
     """get all mentions of a user, the query performed is the following to:<user> OR  @<user>
 
@@ -159,7 +169,7 @@ def get_tweets_mentions(user,
 def get_tweets_timeline(user,
                         api,
                         number_of_api_calls=10,
-                        newest_id_possible_path='/home/noone/Desktop/vfn/violencia_frontera_norte/newest_id_tweets.json',
+                        newest_id_possible_path='newest_id_tweets.json',
                         items_per_call=200):
     """Function to get tweets and retweets from an user timeline
 
@@ -251,7 +261,7 @@ def get_tweets_timeline(user,
 
 if __name__ == "__main__":
     ## reading twitter api credentials.
-    with open('/home/noone/Desktop/vfn/violencia_frontera_norte/creds.json') as json_file:
+    with open('creds.json') as json_file:
         creds = json.load(json_file)
 
     user = "@DEFENSORIAEC"
