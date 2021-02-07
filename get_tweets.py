@@ -9,11 +9,65 @@ from datetime import datetime, timedelta
 import re
 import csv
 
+def format_tweets(tweets, user, _type):
+
+    tweets_lst = []
+    retweets_lst = []  
+
+    for idx, tweet in enumerate(tweets):
+
+        access_time = datetime.now().strftime("%Y %b %d %H:%M:%S")
+        date = datetime.strptime(tweet._json["created_at"],
+                                 '%a %b %d %H:%M:%S %z %Y')
+        date_5 = date - timedelta(hours=5)
+        date_format = date_5.strftime("%Y %b %d %H:%M:%S")
+
+        if _type == "mentions" and (tweet._json["user"]["screen_name"]
+                == user) and (tweet._json["in_reply_to_screen_name"] == user):
+            pass
+            
+        else:
+            
+            # getting tweets
+            if ('RT @' not in tweet._json["full_text"]):
+                temp = [
+                    tweet._json["id"], access_time, date_format,
+                    tweet._json["user"]["screen_name"], None, False, None, _type,
+                    tweet._json["full_text"]
+                ]
+                tweets_lst.append(temp)
+
+            # getting retweets
+            else:
+                temp = [
+                    tweet._json["id"], access_time, date_format,
+                    tweet._json["user"]["screen_name"], None, True,
+                    tweet._json["retweeted_status"]["user"]["screen_name"], _type,
+                    tweet._json["retweeted_status"]["full_text"]
+                ]
+                retweets_lst.append(temp)
+        
+    df_tw = pd.DataFrame(tweets_lst,
+                         columns=[
+                             'id', 'fecha_consulta', 'fecha_escritura',
+                             'cuenta_origen', 'query_busqueda', 'retweet',
+                             'retweeted_from', 'type', 'texto'
+                         ])
+
+    df_rtw = pd.DataFrame(retweets_lst,
+                          columns=[
+                              'id', 'fecha_consulta', 'fecha_escritura',
+                              'cuenta_origen', 'query_busqueda', 'retweet',
+                              'retweeted_from', 'type', 'texto'
+                          ])
+    
+    return df_tw, df_rtw
+
 
 def get_tweets_mentions(user,
                         api,
                         number_of_api_calls=10,
-                        newest_id_possible_path='newest_id_mentions.json',
+                        newest_id_possible_path='/home/noone/Desktop/vfn/violencia_frontera_norte/newest_id_mentions.json',
                         items_per_call=100):
     """get all mentions of a user, the query performed is the following to:<user> OR  @<user>
 
@@ -88,40 +142,9 @@ def get_tweets_mentions(user,
             print('exited because there were 6 consecutive calls giving none')
             break
 
-    tweets_mentions = []
-    retweets_mentions = []
     newest_tweet_id_mentions = {}
 
-    for idx, tweet in enumerate(tweets):
-
-        access_time = datetime.now().strftime("%Y %b %d %H:%M:%S")
-        date = datetime.strptime(tweet._json["created_at"],
-                                 '%a %b %d %H:%M:%S %z %Y')
-        date_5 = date - timedelta(hours=5)
-        date_format = date_5.strftime("%Y %b %d %H:%M:%S")
-
-        if (tweet._json["user"]["screen_name"]
-                == user) and (tweet._json["in_reply_to_screen_name"] == user):
-            pass
-        else:
-            # getting tweets
-            if ('RT @' not in tweet._json["full_text"]):
-                temp = [
-                    tweet._json["id"], access_time, date_format,
-                    tweet._json["user"]["screen_name"], None, False, None, "Mention",
-                    tweet._json["full_text"]
-                ]
-                tweets_mentions.append(temp)
-
-            # getting retweets
-            else:
-                temp = [
-                    tweet._json["id"], access_time, date_format,
-                    tweet._json["user"]["screen_name"], None, True,
-                    tweet._json["retweeted_status"]["user"]["screen_name"], "Mention",
-                    tweet._json["retweeted_status"]["full_text"]
-                ]
-                retweets_mentions.append(temp)
+    df_tw_m, df_rtw_m = format_tweets(tweets, user, "mentions")
 
     if (user not in newest_tweet_id_mentions) and (most_recent_id is not None):
         newest_tweet_id_mentions[user] = most_recent_id
@@ -130,27 +153,13 @@ def get_tweets_mentions(user,
         with open(newest_id_possible_path, 'w') as outfile:
             json.dump(newest_tweet_id_mentions, outfile)
 
-    df_tw_m = pd.DataFrame(tweets_mentions,
-                           columns=[
-                               'id', 'fecha_consulta', 'fecha_escritura',
-                               'cuenta_origen', 'query_busqueda', 'retweet',
-                               'retweeted_from', 'type', 'texto'
-                           ])
-
-    df_rtw_m = pd.DataFrame(retweets_mentions,
-                            columns=[
-                                'id', 'fecha_consulta', 'fecha_escritura',
-                                'cuenta_origen', 'query_busqueda', 'retweet',
-                                'retweeted_from', 'type', 'texto'
-                            ])
-
     return df_tw_m, df_rtw_m
 
 
 def get_tweets_timeline(user,
                         api,
                         number_of_api_calls=10,
-                        newest_id_possible_path='newest_id_tweets.json',
+                        newest_id_possible_path='/home/noone/Desktop/vfn/violencia_frontera_norte/newest_id_tweets.json',
                         items_per_call=200):
     """Function to get tweets and retweets from an user timeline
 
@@ -226,37 +235,10 @@ def get_tweets_timeline(user,
             print('exited because there were 6 consecutive calls giving none')
             break
 
-    tweets_lst = []
-    retweets_lst = []
     newest_tweet_id = {}
 
-    for idx, tweet in enumerate(tweets):
-
-        access_time = datetime.now().strftime("%Y %b %d %H:%M:%S")
-        date = datetime.strptime(tweet._json["created_at"],
-                                 '%a %b %d %H:%M:%S %z %Y')
-        date_5 = date - timedelta(hours=5)
-        date_format = date_5.strftime("%Y %b %d %H:%M:%S")
-
-        # getting tweets
-        if ('RT @' not in tweet._json["full_text"]):
-            temp = [
-                tweet._json["id"], access_time, date_format,
-                tweet._json["user"]["screen_name"], None, False, None, "Tweet",
-                tweet._json["full_text"]
-            ]
-            tweets_lst.append(temp)
-
-        # getting retweets
-        else:
-            temp = [
-                tweet._json["id"], access_time, date_format,
-                tweet._json["user"]["screen_name"], None, True,
-                tweet._json["retweeted_status"]["user"]["screen_name"], "Retweet",
-                tweet._json["retweeted_status"]["full_text"]
-            ]
-            retweets_lst.append(temp)
-
+    df_tw, df_rtw = format_tweets(tweets, user, "timeline")
+    
     if (user not in newest_tweet_id):
         newest_tweet_id[user] = most_recent_id
 
@@ -264,26 +246,12 @@ def get_tweets_timeline(user,
         with open(newest_id_possible_path, 'w') as outfile:
             json.dump(newest_tweet_id, outfile)
 
-    df_tw = pd.DataFrame(tweets_lst,
-                         columns=[
-                             'id', 'fecha_consulta', 'fecha_escritura',
-                             'cuenta_origen', 'query_busqueda', 'retweet',
-                             'retweeted_from', 'type', 'texto'
-                         ])
-
-    df_rtw = pd.DataFrame(retweets_lst,
-                          columns=[
-                              'id', 'fecha_consulta', 'fecha_escritura',
-                              'cuenta_origen', 'query_busqueda', 'retweet',
-                              'retweeted_from', 'type', 'texto'
-                          ])
-
     return df_tw, df_rtw
 
 
 if __name__ == "__main__":
     ## reading twitter api credentials.
-    with open('creds.json') as json_file:
+    with open('/home/noone/Desktop/vfn/violencia_frontera_norte/creds.json') as json_file:
         creds = json.load(json_file)
 
     user = "@DEFENSORIAEC"
