@@ -16,11 +16,13 @@ def format_tweets(tweets, user, _type, _query, geo_s):
         tweets (tweepy.models.SearchResults): api.search or api.user_timeline result
         user (str): screen name of an user
         _type (str): mentions or timeline 
+        _query (str): query search
+        geo_s (str): geocode "lat,long,
 
     Returns:
-        df_tw, df_rtw (pd.DataFrame): dataframes of tweets and retweets
+        df_tw, df_rtw (pd.DataFrame): dataframes with collected information
     """
-
+    
     tweets_lst = []
     retweets_lst = []
 
@@ -37,40 +39,43 @@ def format_tweets(tweets, user, _type, _query, geo_s):
             pass
             
         else:            
-            # getting tweets
+            # Getting tweets
             if not (tweet._json["full_text"].startswith('RT @')):
 
                 temp = [
                     tweet._json["id"], access_time, date_format,
-                    tweet._json["user"]["screen_name"], _query, False, None, _type, geo_s,
-                    tweet._json["geo"], tweet._json["user"]["location"],
-                    tweet._json["full_text"]
+                    tweet._json["user"]["screen_name"], _query,
+                    False, None, _type, geo_s, tweet._json["geo"],
+                    tweet._json["user"]["location"], tweet._json["full_text"]
                 ]
                 tweets_lst.append(temp)
 
-            # getting retweets
+            # Getting retweets
             else:
                 temp = [
                     tweet._json["id"], access_time, date_format,
                     tweet._json["user"]["screen_name"], _query, True,
-                    tweet._json["retweeted_status"]["user"]["screen_name"], _type, geo_s,
-                    tweet._json["geo"], tweet._json["retweeted_status"]["user"]["location"],
+                    tweet._json["retweeted_status"]["user"]["screen_name"],
+                    _type, geo_s, tweet._json["geo"], 
+                    tweet._json["retweeted_status"]["user"]["location"],
                     tweet._json["retweeted_status"]["full_text"]
                 ]
                 retweets_lst.append(temp)
         
     df_tw = pd.DataFrame(tweets_lst,
                          columns=[
-                             'id', 'fecha_consulta', 'fecha_escritura',
-                             'cuenta_origen', 'query_busqueda', 'retweet',
-                             'retweeted_from', 'type', 'geo_search', 'geo', 'location', 'texto'
+                            'id', 'fecha_consulta', 'fecha_escritura',
+                            'cuenta_origen', 'query_busqueda', 'retweet',
+                            'retweeted_from', 'type', 'geo_search', 'geo',
+                            'location', 'texto'
                          ])
 
     df_rtw = pd.DataFrame(retweets_lst,
                           columns=[
                               'id', 'fecha_consulta', 'fecha_escritura',
                               'cuenta_origen', 'query_busqueda', 'retweet',
-                              'retweeted_from', 'type', 'geo_search', 'geo', 'location', 'texto'
+                              'retweeted_from', 'type', 'geo_search', 'geo',
+                              'location', 'texto'
                           ])
     
     return df_tw, df_rtw
@@ -81,7 +86,7 @@ def get_tweets_mentions(user,
                         number_of_api_calls=10,
                         newest_id_possible_path='newest_id_mentions.json',
                         items_per_call=100):
-    """get all mentions of a user, the query performed is the following to:<user> OR  @<user>
+    """get all mentions of a user, the query performed is the following to: <user> OR  @<user>
 
     Link
     - https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/api-reference/get-search-tweets
@@ -90,13 +95,13 @@ def get_tweets_mentions(user,
     Requests / 15-min window (user auth) : 180
     Requests / 15-min window (app auth)	: 450
     Args:
-        user ([type]): [description]
-        api ([type]): [description]
-        number_of_api_calls (int, optional): [description]. Defaults to 4.
-        newest_id_possible_path (str, optional): [description]. Defaults to 'newest_id_mentions.json'.
+        user (str): screen name of an user
+        api (tweepy.api.API): tweepy connection
+        number_of_api_calls (int, optional): [description]. Defaults to 10.
+        newest_id_possible_path (str, optional): registry file. Defaults to 'newest_id_mentions.json'.
 
     Returns:
-        [type]: [description]
+        df_tw_m, df_rtw_m (pd.DataFrame): dataframes with tweets and retweets mentions
     """
 
     if os.path.exists(newest_id_possible_path):
@@ -145,13 +150,13 @@ def get_tweets_mentions(user,
         else:
             num_none_rows = 0
 
-        # end while if max_id is lower than since_id
+        # End while if max_id is lower than since_id
         if (tweet_max_id is not None) and (_since_id is not None):
             if tweet_max_id < _since_id:
                 print('exited because tweet_max_id < since_id')
                 break
 
-        if num_none_rows > 5:  #if 5 searches in a row are none then stop searching for that user
+        if num_none_rows > 5:  # If 5 searches in a row are none then stop searching for that user
             print('exited because there were 6 consecutive calls giving none')
             break    
 
@@ -182,12 +187,12 @@ def get_tweets_timeline(user,
     the maximum number of calls in a 15-min window is 900
     Args:
         user (str): screen name of an user
-        api ([type]): [description]
+        api (tweepy.api.API): tweepy connection
         number_of_api_calls (int, optional): [description]. Defaults to 10.
-        newest_id_possible_path (str, optional): [description]. Defaults to 'newest_id_tweets.json'.
+        newest_id_possible_path (str, optional): registry file. Defaults to 'newest_id_tweets.json'.
 
     Returns:
-        [type]: [description]
+        df_tw, df_rtw (pd.DataFrame): dataframes with tweets and retweets
     """
 
     if os.path.exists(newest_id_possible_path):
@@ -237,13 +242,13 @@ def get_tweets_timeline(user,
         else:
             num_none_rows = 0
 
-        # end while if max_id is lower than since_id
+        # End while if max_id is lower than since_id
         if (tweet_max_id is not None) and (_since_id is not None):
             if tweet_max_id < _since_id:
                 print('exited because tweet_max_id < since_id')
                 break
 
-        if num_none_rows > 6:  #if 6 searches in a row are none then stop searching for that user
+        if num_none_rows > 6:  # If 6 searches in a row are none then stop searching for that user
             print('exited because there were 6 consecutive calls giving none')
             break    
 
@@ -260,11 +265,14 @@ def get_tweets_timeline(user,
 
 
 if __name__ == "__main__":
-    ## reading twitter api credentials.
+    
+    # Reading twitter api credentials
     with open('creds.json') as json_file:
         creds = json.load(json_file)
 
-    users = ["@DEFENSORIAEC"]
+    # Accounts
+    #  ---------------
+    users = ["@DEFENSORIAEC", "@Lenin"]
 
     auth = tweepy.AppAuthHandler(creds["client_key"], creds["client_secret"])
     api = tweepy.API(auth,
@@ -284,14 +292,13 @@ if __name__ == "__main__":
         tw, rtw = get_tweets_timeline(_user, api=api)
         print(len(tw), "tweets", "and", len(rtw), "retweets collected for user: ", i)
 
-        access_time = datetime.now().strftime("%Y_%b_%d_%H:%M:%S")
-        out = access_time + "_cuentas.csv"
-
         dfs.append(tw_m)
         dfs.append(rtw_m)
         dfs.append(tw)
         dfs.append(rtw)
 
+    access_time = datetime.now().strftime("%Y_%b_%d_%H:%M:%S")
+    out = access_time + "_cuentas.csv"
     all_dfs = pd.concat(dfs, ignore_index=True)
     all_dfs.to_csv(out,
                    sep='\t',
