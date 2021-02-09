@@ -67,8 +67,8 @@ def get_tweets_queries(query,
   if os.path.exists(newest_id_possible_path):
     with open(newest_id_possible_path) as json_file:
       newest_tweet_id_mentions = json.load(json_file)
-      if query in newest_tweet_id_mentions:
-        _since_id = newest_tweet_id_mentions[query]
+      if final_format_query in newest_tweet_id_mentions:
+        _since_id = newest_tweet_id_mentions[final_format_query]
       else:
         _since_id = None
   else:
