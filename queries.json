@@ -1,0 +1,13 @@
+{
+    "queries": [
+        "violencia ecuador",
+        "paz frontera",
+        "frontera paz",
+        "ecuador violento"
+    ],
+    "geocode": null,
+    "language": "es",
+    "exact_match": false,
+    "separate_words_with_or": true,
+    "exclude_words": []
+}
