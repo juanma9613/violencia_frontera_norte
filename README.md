@@ -17,7 +17,7 @@ it usually performs 10 api calls per user in the list, each call will retrieve 1
 
 ## get_tweets_queries.py
 
-This script should be run providing the path to a json file containing the queries and some additional information, there's an example in the repo, called [queries.json](./queries.json)
+This script should be run providing the path to a json file containing the queries and some additional information, there are two examples in the repo, one is [queries.json](./queries.json), which doesn't include words to exclude, and the other is [queries_geocode.json](./queries_geocode.json), when the geocode provided is not null and we want to exclude the word "politica" from the search.
 
 ````
 python get_tweets_queries --queries_path queries.json
