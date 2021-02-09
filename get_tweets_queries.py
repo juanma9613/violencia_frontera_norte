@@ -9,25 +9,27 @@ from datetime import datetime, timedelta
 import re
 import csv
 from get_tweets import format_tweets
+import argparse
+
 
 def get_tweets_queries(query,
                        api,
                        geolocation_code=None,
                        exact_match=True,
                        separate_words_with_or=False,
-                       exclude_words = [],
+                       exclude_words=[],
                        lang="es",
                        number_of_api_calls=10,
                        newest_id_possible_path='newest_id_query.json',
                        items_per_call=100):
-    """[summary]
+  """runs a query with the search item and rules provided
 
     Args:
         query (str): search item
         api (tweepy.api.API): tweepy connection
         geolocation_code (str, optional): e.g. "-2.19616,-79.88621,14mi" -> Guayaquil [description]. Defaults to None.
         exact_match (bool, optional): [description]. Defaults to True.
-        separate_words_with_or (bool, optional): [description]. Defaults to False.
+        separate_words_with_or (bool, optional): [description]. Defaults to False. If exact_match is True, this value is ignored
         exclude_words (list, optional): [description]. Defaults to [].
         lang (str, optional): [description]. Defaults to "es".
         number_of_api_calls (int, optional): [description]. Defaults to 10.
@@ -38,158 +40,182 @@ def get_tweets_queries(query,
         df_tw_q, df_rtw_q (pd.DataFrame): dataframes with tweets and retweets based on queries
     """
 
-    if exact_match:
-        format_query = f'"{query}"'
+  # dict to pass geocode and lang only if they are not None.
+  kwargs_search = {}
 
-    elif separate_words_with_or:
-        if len(query.split()) > 1:            
-            lst_q = query.split()
-            join_query = " OR ".join(lst_q)
-            format_query = f'{join_query}'
-        else:
-            format_query = f'{query}'
-    else:
-        format_query = f'{query}'
+  if lang is not None:
+    kwargs_search["lang"] = lang
 
-    if len(exclude_words) > 0:  
-            join_exclude = " -" + " -".join(exclude_words)
-            format_exclude = f'{join_exclude}'
-    else:
-        format_exclude = ""
-    
-    final_format_query = format_query + format_exclude
+  if geolocation_code is not None:
+    kwargs_search["geocode"] = geolocation_code
 
-    if os.path.exists(newest_id_possible_path):
-        with open(newest_id_possible_path) as json_file:
-            newest_tweet_id_mentions = json.load(json_file)
-            if query in newest_tweet_id_mentions:
-                _since_id = newest_tweet_id_mentions[query]
-            else:
-                _since_id = None
-    else:
-        newest_tweet_id_mentions = {}
+  if exact_match:
+    query = f'"{query}"'
+
+  elif separate_words_with_or:
+    split_query = query.split()
+    if len(split_query) > 1:
+      query = " OR ".join(split_query)
+
+  if len(exclude_words) > 0:
+    format_exclude = " -" + " -".join(exclude_words)
+  else:
+    format_exclude = ""
+
+  final_format_query = query + format_exclude
+
+  if os.path.exists(newest_id_possible_path):
+    with open(newest_id_possible_path) as json_file:
+      newest_tweet_id_mentions = json.load(json_file)
+      if query in newest_tweet_id_mentions:
+        _since_id = newest_tweet_id_mentions[query]
+      else:
         _since_id = None
+  else:
+    newest_tweet_id_mentions = {}
+    _since_id = None
 
-    _max_id = None
-    n_queries = 0
-    max_queries = number_of_api_calls
+  _max_id = None
+  n_queries = 0
+  max_queries = number_of_api_calls
 
-    tweets = tweet_batch = api.search(q=final_format_query,
-                                      tweet_mode="extended",
-                                      geolocation_code=geolocation_code,
-                                      lang=lang,
-                                      count=items_per_call,
-                                      result_type='recent',
-                                      since_id=_since_id,
-                                      max_id=_max_id)
+  tweets = tweet_batch = api.search(q=final_format_query,
+                                    tweet_mode="extended",
+                                    count=items_per_call,
+                                    result_type='recent',
+                                    since_id=_since_id,
+                                    max_id=_max_id,
+                                    **kwargs_search)
 
+  n_queries += 1
+  most_recent_id = tweet_batch.since_id
+  num_none_rows = 0
+  tweet_max_id = None
+
+  while (n_queries < max_queries):
+    if tweet_batch.max_id is not None:
+      tweet_max_id = tweet_batch.max_id
+
+    tweet_batch = api.search(q=final_format_query,
+                             tweet_mode="extended",
+                             count=items_per_call,
+                             result_type='recent',
+                             since_id=_since_id,
+                             max_id=tweet_max_id,
+                             **kwargs_search)
     n_queries += 1
-    most_recent_id = tweet_batch.since_id
-    num_none_rows = 0
-    tweet_max_id = None
+    tweets.extend(tweet_batch)
 
-    while (n_queries < max_queries):
-        if tweet_batch.max_id is not None:
-            tweet_max_id = tweet_batch.max_id
+    if len(tweet_batch) == 0:
+      num_none_rows += 1
+    else:
+      num_none_rows = 0
 
-        tweet_batch = api.search(q=final_format_query,
-                                 tweet_mode="extended",
-                                 geolocation_code=geolocation_code,
-                                 lang=lang,
-                                 count=items_per_call,
-                                 result_type='recent',
-                                 since_id=_since_id,
-                                 max_id=tweet_max_id)
-        n_queries += 1
-        tweets.extend(tweet_batch)
+    # End while if max_id is lower than since_id
+    if (tweet_max_id is not None) and (_since_id is not None):
+      if tweet_max_id < _since_id:
+        print('exited because there are not more tweets to collect')
+        break
 
-        if len(tweet_batch) == 0:
-            num_none_rows += 1
-        else:
-            num_none_rows = 0
+    if num_none_rows > 5:  # If 5 searches in a row are none then stop searching for that user
+      print('exited because there are not more tweets to collect')
+      break
 
-        # End while if max_id is lower than since_id
-        if (tweet_max_id is not None) and (_since_id is not None):
-            if tweet_max_id < _since_id:
-                print('exited because tweet_max_id < since_id')
-                break
+  df_tw_q, df_rtw_q = format_tweets(tweets, "null", "queries",
+                                    final_format_query, geolocation_code)
 
-        if num_none_rows > 5:  # If 5 searches in a row are none then stop searching for that user
-            print('exited because there were 6 consecutive calls giving none')
-            break
+  if most_recent_id is not None:
+    newest_tweet_id_mentions[final_format_query] = most_recent_id
 
-    df_tw_q, df_rtw_q = format_tweets(tweets, "null", "queries", final_format_query, geolocation_code)
+    with open(newest_id_possible_path, 'w') as outfile:
+      json.dump(newest_tweet_id_mentions, outfile)
 
-    if most_recent_id is not None:
-        newest_tweet_id_mentions[query] = most_recent_id
+  return df_tw_q, df_rtw_q
 
-    #if most_recent_id is not None:
-        with open(newest_id_possible_path, 'w') as outfile:
-            json.dump(newest_tweet_id_mentions, outfile)
 
-    return df_tw_q, df_rtw_q
+def load_queries_info(path):
+
+  with open(path) as json_file:
+    queries_json = json.load(json_file)
+  queries = queries_json["queries"]
+  assert isinstance(queries, list), "queries must be a list"
+  assert len(queries) > 0, "you must provide at least one query"
+  geocode = queries_json["geocode"]
+  exact_match = queries_json["exact_match"]
+  separate_words_with_or = queries_json["separate_words_with_or"]
+  exclude_words = queries_json["exclude_words"]
+  language = queries_json["language"]
+  return (queries, geocode, exact_match, language, separate_words_with_or,
+          exclude_words)
+
+
+def create_arg_parser():
+  # Creates and returns the ArgumentParser object
+
+  parser = argparse.ArgumentParser(
+      description='script to collect tweets related with users')
+  parser.add_argument("-Q",
+                      "--queries_path",
+                      default="queries.json",
+                      type=str,
+                      help="path to a json file containing the list of "
+                      "queries and the other expressions to use in the search")
+  return parser
 
 
 if __name__ == "__main__":
-    
-    # Reading twitter api credentials.
-    with open('creds.json') as json_file:
-        creds = json.load(json_file)
+  MAX_CALLS_TIMELINE_API = 900
+  MAX_CALLS_QUERY_API = 180
+  number_of_api_calls_per_query = 10
+  # Reading twitter api credentials.
+  with open('creds.json') as json_file:
+    creds = json.load(json_file)
 
-    auth = tweepy.AppAuthHandler(creds["client_key"], creds["client_secret"])
-    api = tweepy.API(auth,
-                     wait_on_rate_limit=True,
-                     wait_on_rate_limit_notify=True)
+  auth = tweepy.AppAuthHandler(creds["client_key"], creds["client_secret"])
+  api = tweepy.API(auth,
+                   wait_on_rate_limit=True,
+                   wait_on_rate_limit_notify=True)
 
-    # Parameters
-    # ---------------
-    _querys = ["violencia", "paz" , "frontera", "mamá me mima", "ecuador"]
-    geolocation = "-2.19616,-79.88621,14mi"
-    language = "es"
-    exact_match = True
-    separate_words_with_or = False
-    exclude_words = ["la"]
+  # Reading console args
+  parser = create_arg_parser()
+  args = parser.parse_args()
 
-    '''
-    If exact_match == False and separate_words_with_or == False:
+  queries_path = args.queries_path
+  assert os.path.exists(
+      queries_path), "you didn't add a path to read queries from"
 
-        e.g. query = watching now	(containing both “watching” and “now”. This is the default operator.)
+  (queries, geolocation, exact_match, language, separate_words_with_or,
+   exclude_words) = load_queries_info(queries_path)
 
-    If exact_match == True:
+  assert len(
+      queries) > 0, "you need to provide a json file with at least one query"
 
-        e.g. query = “happy hour”	(containing the exact phrase “happy hour”.)
+  assert len(
+      queries) < MAX_CALLS_QUERY_API, "please reduce the number of queries"
 
-    If separate_words_with_or == True and exact_match == False:
+  if number_of_api_calls_per_query * len(queries) > MAX_CALLS_QUERY_API:
+    number_of_api_calls_per_query = MAX_CALLS_QUERY_API // len(queries)
 
-        e.g. query = love OR hate	(containing either “love” or “hate” (or both).)
+  dfs = []
+  for i in queries:
+    tw, rts = get_tweets_queries(
+        query=i,
+        api=api,
+        geolocation_code=geolocation,
+        exact_match=exact_match,
+        separate_words_with_or=separate_words_with_or,
+        exclude_words=exclude_words,
+        lang=language,
+        number_of_api_calls=number_of_api_calls_per_query,
+        items_per_call=100)
 
-    If exclude_words == ["root", "tor"]:
+    print(len(tw), "tweets", "and", len(rts), "retweets collected for query: ",
+          i)
 
-        e.g. query = query[i] -root -tor (containing “query[i]” but not “root” and "tor".)
-    '''
-    
-    dfs = []
-    for i in _querys:
-        tw, rts = get_tweets_queries(query=i,
-                                    api=api,
-                                    geolocation_code=geolocation,
-                                    exact_match=exact_match,
-                                    separate_words_with_or = separate_words_with_or,
-                                    exclude_words = exclude_words,
-                                    lang=language,
-                                    number_of_api_calls=10,
-                                    items_per_call=100)
+    dfs.append(tw)
+    dfs.append(rts)
 
-        print(len(tw), "tweets", "and", len(rts), "retweets collected for query: ", i)
-
-        dfs.append(tw)
-        dfs.append(rts)
-    
-    access_time = datetime.now().strftime("%Y_%b_%d_%H:%M:%S")
-    out = access_time + "_queries.csv"
-    all_dfs = pd.concat(dfs, ignore_index=True)
-    all_dfs.to_csv(out,
-                sep='\t',
-                index=False,
-                header=True,
-                quoting=csv.QUOTE_ALL)
+  access_time = datetime.now().strftime("%Y_%b_%d_%H:%M:%S")
+  out = access_time + "_queries.csv"
+  all_dfs = pd.concat(dfs, ignore_index=True)
+  all_dfs.to_csv(out, sep='\t', index=False, header=True, quoting=csv.QUOTE_ALL)
