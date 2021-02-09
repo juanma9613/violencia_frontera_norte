@@ -9,5 +9,7 @@
     "language": "es",
     "exact_match": false,
     "separate_words_with_or": false,
-    "exclude_words": []
+    "exclude_words": [
+        "politica"
+    ]
 }
